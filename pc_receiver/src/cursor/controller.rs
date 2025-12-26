@@ -1,15 +1,16 @@
 use enigo::{Enigo, Mouse, Button, Direction, Coordinate};
 use crate::model::motion_data::MotionData;
 
+
 pub fn apply_cursor(dx: i32, dy: i32, data: &MotionData, enigo: &mut Enigo) {
-    // Move cursor (relative movement)
+    
     if dx != 0 || dy != 0 {
         enigo
             .move_mouse(dx, dy, Coordinate::Rel)
-            .expect("Mouse move failed");
+            .expect("Mouse movement failed");
     }
 
-    // Handle gestures
+    
     if let Some(gesture) = &data.gesture {
         match gesture.as_str() {
             "LEFT_CLICK" => {
