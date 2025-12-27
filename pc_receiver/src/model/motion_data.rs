@@ -2,13 +2,12 @@ use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
 pub struct MotionData {
+    pub motion: MotionPayload,
+}
 
-    #[serde(rename = "gyroX")]
-    pub gyro_x: Option<f64>,
-
-    #[serde(rename = "gyroY")]
-    pub gyro_y: Option<f64>,
-
-   
-    pub gesture: Option<String>,
+#[derive(Debug, Deserialize)]
+pub struct MotionPayload {
+    pub dx: f64,
+    pub dy: f64,
+    pub click: bool,
 }
