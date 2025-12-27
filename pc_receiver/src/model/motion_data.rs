@@ -10,4 +10,5 @@ pub struct MotionPayload {
     pub dx: f64,
     pub dy: f64,
     pub click: bool,
+    pub timestamp: u64,
 }

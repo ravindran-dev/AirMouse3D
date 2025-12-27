@@ -2,7 +2,7 @@ use crate::model::motion_data::MotionData;
 use std::sync::Mutex;
 use std::time::Instant;
 
-const SENSITIVITY: f64 = 100.0;
+const SENSITIVITY: f64 = 30.0;
 const DAMP: f64 = 0.85; 
 const CLEAR: f64 = 0.7; 
 static STATE: Mutex<(f64, f64, f64, f64, Option<Instant>)> =
