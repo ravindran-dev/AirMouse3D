@@ -35,8 +35,11 @@ async fn main() {
         timestamp: 0,
     }));
 
+    let shared_click = Arc::new(Mutex::new(false));
+
     {
         let shared_motion = Arc::clone(&shared_motion);
+        let shared_click = Arc::clone(&shared_click);
         tokio::spawn(async move {
             loop {
                 if let Some(data) = fetch_motion_data(&url).await {
@@ -44,21 +47,25 @@ async fn main() {
                     sm.dx = data.motion.dx;
                     sm.dy = data.motion.dy;
                     sm.timestamp = data.motion.timestamp;
+                    drop(sm);
+                    let mut click = shared_click.lock().unwrap();
+                    *click = data.motion.click;
                 }
                 sleep(Duration::from_millis(config::POLL_INTERVAL_MS)).await;
             }
         });
     }
     loop {
-        let (dx, dy, ts) = {
+        let (dx, dy, ts, click) = {
             let sm = shared_motion.lock().unwrap();
-            (sm.dx, sm.dy, sm.timestamp)
+            let click = shared_click.lock().unwrap();
+            (sm.dx, sm.dy, sm.timestamp, *click)
         };
         let motion_data = MotionData {
             motion: MotionPayload {
                 dx,
                 dy,
-                click: false,
+                click,
                 timestamp: ts,
             },
         };
