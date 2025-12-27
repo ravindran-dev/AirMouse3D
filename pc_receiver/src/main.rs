@@ -5,7 +5,7 @@ mod cursor;
 mod utils;
 use crate::model::motion_data::{MotionData, MotionPayload};
 use enigo::{Enigo, Settings};
-use tokio::time::{sleep, Duration};
+use tokio::time::{sleep, Duration, Instant};
 use std::sync::{Arc, Mutex};
 use firebase::client::fetch_motion_data;
 use cursor::mapper::map_motion;
@@ -15,6 +15,12 @@ struct SharedMotion {
     dx: f64,
     dy: f64,
     timestamp: u64,
+}
+
+struct ClickDebounce {
+    last_click: Instant,
+    cooldown: Duration,
+    last_click_state: bool,
 }
 #[tokio::main]
 async fn main() {
@@ -36,6 +42,12 @@ async fn main() {
     }));
 
     let shared_click = Arc::new(Mutex::new(false));
+
+    let mut click_debounce = ClickDebounce {
+        last_click: Instant::now() - Duration::from_secs(1),
+        cooldown: Duration::from_millis(750),
+        last_click_state: false,
+    };
 
     {
         let shared_motion = Arc::clone(&shared_motion);
@@ -61,14 +73,26 @@ async fn main() {
             let click = shared_click.lock().unwrap();
             (sm.dx, sm.dy, sm.timestamp, *click)
         };
+        
+        // Only register click on state change (false -> true) and if cooldown has passed
+        let should_click = click && !click_debounce.last_click_state && 
+                          click_debounce.last_click.elapsed() >= click_debounce.cooldown;
+        
         let motion_data = MotionData {
             motion: MotionPayload {
                 dx,
                 dy,
-                click,
+                click: should_click,
                 timestamp: ts,
             },
         };
+        
+        if should_click {
+            click_debounce.last_click = Instant::now();
+        }
+        
+        click_debounce.last_click_state = click;
+        
         let (mx, my) = map_motion(&motion_data);
         apply_cursor(mx, my, &motion_data, &mut enigo);
         sleep(Duration::from_millis(8)).await;
