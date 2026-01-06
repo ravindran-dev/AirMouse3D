@@ -29,11 +29,25 @@ struct ClickDebounce {
 #[tokio::main]
 async fn main() {
     println!("Rust PC Receiver started");
+    
+    let session_id = Uuid::new_v4().to_string();
+
+    
+    println!("🔑 Session ID: {}", session_id);
+
+    
+    let qr = QrCode::new(&session_id).unwrap();
+    println!(
+        "{}",
+        qr.render::<unicode::Dense1x2>()
+            .quiet_zone(false)
+            .build()
+    );
 
     let url = format!(
         "{}/sessions/{}.json",
         config::FIREBASE_BASE_URL,
-        config::SESSION_ID
+        session_id
     );
 
     let mut enigo = Enigo::new(&Settings::default())
