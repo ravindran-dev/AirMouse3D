@@ -33,7 +33,7 @@ async fn main() {
     let session_id = Uuid::new_v4().to_string();
 
     
-    println!("🔑 Session ID: {}", session_id);
+    println!("Session ID: {}", session_id);
 
     
     let qr = QrCode::new(&session_id).unwrap();
