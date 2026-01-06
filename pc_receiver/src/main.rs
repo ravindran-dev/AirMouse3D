@@ -10,6 +10,10 @@ use std::sync::{Arc, Mutex};
 use firebase::client::fetch_motion_data;
 use cursor::mapper::map_motion;
 use cursor::controller::apply_cursor;
+use uuid::Uuid;
+use qrcode::QrCode;
+use qrcode::render::unicode;
+
 #[derive(Clone, Copy)]
 struct SharedMotion {
     dx: f64,
@@ -73,11 +77,11 @@ async fn main() {
             let click = shared_click.lock().unwrap();
             (sm.dx, sm.dy, sm.timestamp, *click)
         };
-        
+
         // Only register click on state change (false -> true) and if cooldown has passed
-        let should_click = click && !click_debounce.last_click_state && 
+        let should_click = click && !click_debounce.last_click_state &&
                           click_debounce.last_click.elapsed() >= click_debounce.cooldown;
-        
+
         let motion_data = MotionData {
             motion: MotionPayload {
                 dx,
@@ -86,13 +90,13 @@ async fn main() {
                 timestamp: ts,
             },
         };
-        
+
         if should_click {
             click_debounce.last_click = Instant::now();
         }
-        
+
         click_debounce.last_click_state = click;
-        
+
         let (mx, my) = map_motion(&motion_data);
         apply_cursor(mx, my, &motion_data, &mut enigo);
         sleep(Duration::from_millis(8)).await;
