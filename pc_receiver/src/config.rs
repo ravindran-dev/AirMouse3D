@@ -1,4 +1,2 @@
-pub const FIREBASE_BASE_URL: &str =
-    "https://airmouse-e8099-default-rtdb.firebaseio.com";
-
-pub const POLL_INTERVAL_MS: u64 = 20;
+/// UDP port the receiver listens on. Must match `Constants.PC_UDP_PORT` on the Android side.
+pub const UDP_LISTEN_PORT: u16 = 7890;

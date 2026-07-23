@@ -1,46 +1,17 @@
-use crate::model::motion_data::MotionData;
-use std::sync::Mutex;
+use crate::model::motion_data::MotionPayload;
 
+/// The phone already applies shake rejection, a low-pass filter, a dead zone, and sensitivity
+/// scaling before ever sending a packet (see `MotionProcessor` on the Android side) -- dx/dy
+/// here are the final, ready-to-apply pixel deltas. Running a second, independent smoothing +
+/// dead-zone + rescale pass on this side (as the old Firebase-polling version did) only stacks
+/// a second filter's lag on top of the first, which is exactly what made movement feel laggy
+/// and imprecise rather than "exact, like a real mouse". This just maps axes for screen space
+/// and applies one generous safety clamp against a corrupt or malicious packet -- no shaping.
+const MAX_PIXELS_PER_PACKET: f64 = 300.0;
 
-static LAST: Mutex<(f64, f64)> = Mutex::new((0.0, 0.0));
+pub fn map_motion(data: &MotionPayload) -> (i32, i32) {
+    let dx = (-data.dy).clamp(-MAX_PIXELS_PER_PACKET, MAX_PIXELS_PER_PACKET);
+    let dy = data.dx.clamp(-MAX_PIXELS_PER_PACKET, MAX_PIXELS_PER_PACKET);
 
-
-const DEAD_ZONE: f64 = 1.2;      
-const MAX_INPUT: f64 = 12.0;     
-const SENSITIVITY: f64 = 7.0;    
-const SMOOTH: f64 = 0.6;         
-
-pub fn map_motion(data: &MotionData) -> (i32, i32) {
-    let mut last = LAST.lock().unwrap();
-
-    
-    let mut x = data.motion.dy;  
-    let mut y = data.motion.dx;  
-
-    
-    x = -x;
-
-    
-    if x.abs() < DEAD_ZONE && y.abs() < DEAD_ZONE {
-        last.0 = 0.0;
-        last.1 = 0.0;
-        return (0, 0);
-    }
-
-   
-    x = (x / MAX_INPUT).clamp(-1.0, 1.0);
-    y = (y / MAX_INPUT).clamp(-1.0, 1.0);
-
-    
-    x = last.0 + (x - last.0) * SMOOTH;
-    y = last.1 + (y - last.1) * SMOOTH;
-
-    last.0 = x;
-    last.1 = y;
-
-    
-    let dx = (x * SENSITIVITY).round() as i32;
-    let dy = (y * SENSITIVITY).round() as i32;
-
-    (dx, dy)
+    (dx.round() as i32, dy.round() as i32)
 }

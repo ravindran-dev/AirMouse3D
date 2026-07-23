@@ -1,5 +1,6 @@
 
 pc_receiver/target/
+pc_receiver/dist/
 Cargo.lock
 
 
@@ -23,3 +24,14 @@ Thumbs.db
 
 firebase_key.json
 serviceAccountKey.json
+
+
+# Android app (android_app/)
+android_app/local.properties
+android_app/.gradle/
+android_app/**/build/
+android_app/.idea/
+android_app/*.iml
+android_app/**/*.iml
+android_app/captures/
+android_app/.cxx/

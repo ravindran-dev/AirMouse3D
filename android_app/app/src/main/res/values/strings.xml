@@ -1,0 +1,16 @@
+<resources>
+    <string name="app_name">AirMouse3D</string>
+
+    <string name="service_notification_title">AirMouse3D is running</string>
+    <string name="service_notification_text">Streaming motion data to your computer</string>
+    <string name="service_notification_channel_name">Air Mouse Session</string>
+
+    <string name="splash_tagline">Turn your phone into a wireless air mouse</string>
+
+    <string name="home_title">AirMouse3D</string>
+    <string name="start_air_mouse">Start Air Mouse</string>
+    <string name="stop_air_mouse">Stop Air Mouse</string>
+    <string name="about">About</string>
+
+    <string name="sensitivity">Sensitivity</string>
+</resources>

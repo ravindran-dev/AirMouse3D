@@ -1,123 +1,48 @@
+// Hide the console window in release builds so this behaves like a normal double-click-able
+// Windows app; kept for debug builds so `cargo run` still shows println!/panic output.
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 mod config;
-mod firebase;
-mod model;
 mod cursor;
+mod gui;
+mod icon;
+mod model;
+mod net;
+mod server;
 mod utils;
 
-use crate::model::motion_data::{MotionData, MotionPayload};
-use enigo::{Enigo, Settings};
-use tokio::time::{sleep, Duration, Instant};
+use server::ReceiverStatus;
 use std::sync::{Arc, Mutex};
 
-use firebase::client::{fetch_motion_data, fetch_active_session_id};
-use cursor::mapper::map_motion;
-use cursor::controller::apply_cursor;
+fn main() -> eframe::Result<()> {
+    let local_ip = net::discovery::local_ipv4().unwrap_or_else(|| "0.0.0.0".to_string());
+    let address = format!("{}:{}", local_ip, config::UDP_LISTEN_PORT);
 
-#[derive(Clone, Copy)]
-struct SharedMotion {
-    dx: f64,
-    dy: f64,
-    timestamp: u64,
-}
+    let status: server::SharedStatus = Arc::new(Mutex::new(ReceiverStatus::default()));
+    server::spawn(status.clone());
 
-struct ClickDebounce {
-    last_click: Instant,
-    cooldown: Duration,
-    last_click_state: bool,
-}
+    let qr_image = gui::qr_color_image(&address);
 
-#[tokio::main]
-async fn main() {
-    println!("🖥 Rust PC Receiver started");
-    println!("🔍 Waiting for active session...");
-
-    // ===== AUTO DETECT ACTIVE SESSION ID =====
-    let session_id = loop {
-        if let Some(id) = fetch_active_session_id(config::FIREBASE_BASE_URL).await {
-            println!("✅ Connected to session: {}", id);
-            break id;
-        }
-        sleep(Duration::from_secs(1)).await;
+    // Live window / taskbar icon, drawn procedurally (see src/icon.rs) so it matches the exe's
+    // embedded icon without shipping a binary asset.
+    let icon = eframe::egui::IconData {
+        rgba: icon::rgba(64),
+        width: 64,
+        height: 64,
     };
 
-    // ✅ IMPORTANT: still reading FULL SESSION JSON (not /motion.json)
-    let url = format!(
-        "{}/sessions/{}.json",
-        config::FIREBASE_BASE_URL,
-        session_id
-    );
-
-    let mut enigo = Enigo::new(&Settings::default())
-        .expect("Failed to initialize Enigo");
-
-    let shared_motion = Arc::new(Mutex::new(SharedMotion {
-        dx: 0.0,
-        dy: 0.0,
-        timestamp: 0,
-    }));
-
-    let shared_click = Arc::new(Mutex::new(false));
-
-    let mut click_debounce = ClickDebounce {
-        last_click: Instant::now() - Duration::from_secs(1),
-        cooldown: Duration::from_millis(750),
-        last_click_state: false,
+    let options = eframe::NativeOptions {
+        viewport: eframe::egui::ViewportBuilder::default()
+            .with_title("AirMouse3D Receiver")
+            .with_inner_size([540.0, 470.0])
+            .with_min_inner_size([510.0, 440.0])
+            .with_icon(Arc::new(icon)),
+        ..Default::default()
     };
 
-    // ===== FIREBASE POLLING TASK =====
-    {
-        let shared_motion = Arc::clone(&shared_motion);
-        let shared_click = Arc::clone(&shared_click);
-        let url = url.clone();
-
-        tokio::spawn(async move {
-            loop {
-                if let Some(data) = fetch_motion_data(&url).await {
-                    let mut sm = shared_motion.lock().unwrap();
-                    sm.dx = data.motion.dx;
-                    sm.dy = data.motion.dy;
-                    sm.timestamp = data.motion.timestamp;
-                    drop(sm);
-
-                    let mut click = shared_click.lock().unwrap();
-                    *click = data.motion.click;
-                }
-                sleep(Duration::from_millis(config::POLL_INTERVAL_MS)).await;
-            }
-        });
-    }
-
-    println!("🎯 Receiving motion data...");
-
-    // ===== CURSOR LOOP =====
-    loop {
-        let (dx, dy, ts, click) = {
-            let sm = shared_motion.lock().unwrap();
-            let click = shared_click.lock().unwrap();
-            (sm.dx, sm.dy, sm.timestamp, *click)
-        };
-
-        let should_click = click
-            && !click_debounce.last_click_state
-            && click_debounce.last_click.elapsed() >= click_debounce.cooldown;
-
-        let motion_data = MotionData {
-            motion: MotionPayload {
-                dx,
-                dy,
-                click: should_click,
-                timestamp: ts,
-            },
-        };
-
-        if should_click {
-            click_debounce.last_click = Instant::now();
-        }
-        click_debounce.last_click_state = click;
-
-        let (mx, my) = map_motion(&motion_data);
-        apply_cursor(mx, my, &motion_data, &mut enigo);
-
-        sleep(Duration::from_millis(8)).await;
-    }
+    eframe::run_native(
+        "AirMouse3D Receiver",
+        options,
+        Box::new(move |cc| Ok(Box::new(gui::ReceiverApp::new(cc, status, address, qr_image)))),
+    )
 }
